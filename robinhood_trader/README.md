@@ -41,7 +41,7 @@ Parameters live at the top of `signal_engine.py` (`SMA_FAST`, `SMA_SLOW`, `RSI_L
 | `signal_engine.py` | Pure signal computation. Fetches QQQ daily bars (Yahoo), computes MAs/RSI, applies the circuit breaker, prints a JSON decision. Places **no** orders. |
 | `DAILY_RUN.md` | The playbook a scheduled Claude session follows to read the account, run the engine, place rotation orders via the Robinhood MCP, and persist state. |
 | `state.json` | Persisted high-water mark, halt flag, last target, and run history. Committed each day so the next run inherits it. |
-| `run_daily.sh` | Local cron wrapper: pulls the repo, runs Claude Code headless against `DAILY_RUN.md` (Bash + MCP tools only), logs, and flags re-auth/failures. |
+| `run_daily.sh` | Local cron wrapper: pulls the repo, runs Claude Code headless against `DAILY_RUN.md` (tools scoped to Bash + Edit/Write + robinhood-trading MCP), logs, and flags re-auth/failures. |
 
 ## How it actually runs (important)
 Orders go through the `robinhood-trading` **MCP server**, which is OAuth-authenticated to
@@ -99,3 +99,5 @@ python3 robinhood_trader/signal_engine.py --equity 171.27
 ## Status
 - **2026-06-10:** Live. First order placed — BUY TQQQ $167.84 (queued, fills next open).
   Regime BULL (QQQ 716.07 > 50MA 670.65 > 200MA 622.57, RSI 53.6). High-water mark $171.27.
+- **2026-06-10:** Headless plumbing tested end-to-end (read-only): OAuth token reuse,
+  signal engine, and the "current == target → no duplicate order" guard all confirmed working.

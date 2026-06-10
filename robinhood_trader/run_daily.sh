@@ -52,11 +52,15 @@ robinhood-trading MCP is not authenticated, or data fetch fails, DO NOT TRADE â€
 print a line beginning with 'NEEDS_ATTENTION:' explaining why, and stop."
 
 log "Invoking Claude Code headless ..."
+# Tool access is granted via --allowedTools (whitelist), NOT --permission-mode
+# bypassPermissions: in headless (-p) mode listed tools are auto-approved and
+# everything else is auto-denied (no hanging prompt). This is tighter than a
+# blanket bypass AND it works under a root cron (bypassPermissions refuses to
+# run as root). Edit/Write are needed so the playbook can update state.json.
 set +e
 claude -p "$PROMPT" \
-  --permission-mode bypassPermissions \
-  --allowedTools "Bash,mcp__robinhood-trading__*" \
-  --output-format text >>"$LOG" 2>&1
+  --allowedTools "Bash,Edit,Write,mcp__robinhood-trading__*" \
+  --output-format text < /dev/null >>"$LOG" 2>&1
 STATUS=$?
 set -e
 

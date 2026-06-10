@@ -41,6 +41,7 @@ Parameters live at the top of `signal_engine.py` (`SMA_FAST`, `SMA_SLOW`, `RSI_L
 | `signal_engine.py` | Pure signal computation. Fetches QQQ daily bars (Yahoo), computes MAs/RSI, applies the circuit breaker, prints a JSON decision. Places **no** orders. |
 | `DAILY_RUN.md` | The playbook a scheduled Claude session follows to read the account, run the engine, place rotation orders via the Robinhood MCP, and persist state. |
 | `state.json` | Persisted high-water mark, halt flag, last target, and run history. Committed each day so the next run inherits it. |
+| `run_daily.sh` | Local cron wrapper: pulls the repo, runs Claude Code headless against `DAILY_RUN.md` (Bash + MCP tools only), logs, and flags re-auth/failures. |
 
 ## How it actually runs (important)
 Orders go through the `robinhood-trading` **MCP server**, which is OAuth-authenticated to
@@ -48,18 +49,42 @@ Orders go through the `robinhood-trading` **MCP server**, which is OAuth-authent
 credentials. So "run every trading day" means a **recurring Claude Code session** that
 opens `DAILY_RUN.md` and executes it.
 
-### Scheduling (you set this up)
-In **Claude Code on the web** (https://claude.com/code), create a **scheduled session /
-trigger** on this repo + branch (`claude/robinhood-trading-wO8ot`) with a prompt like:
+### Scheduling — local cron (chosen setup)
+Run the playbook from an **always-on machine** via `run_daily.sh`, which invokes Claude Code
+headless against `DAILY_RUN.md` with only Bash + the robinhood-trading MCP tools enabled.
 
-> "Execute robinhood_trader/DAILY_RUN.md for today. Re-authenticate the robinhood-trading
-> MCP if needed, run the full playbook, place any required rotation order in account
-> 855664652, update and push state.json, then report."
+**One-time setup on that machine:**
+1. Install Claude Code; clone this repo; `git checkout claude/robinhood-trading-wO8ot`.
+2. Run `claude` once interactively → `/mcp` → authenticate `robinhood-trading`.
+   Headless runs reuse and auto-refresh that stored OAuth token.
+3. Ensure `claude`, `python3`, and `git` are on PATH **for cron** (cron has a minimal
+   environment — set PATH in the crontab, see below).
+4. `chmod +x robinhood_trader/run_daily.sh`
 
-Schedule it for **trading days at ~3:30 PM ET** (before the 4 PM close, so dollar/fractional
-orders are accepted and the daily bar is near-final). Set the environment's network policy
-to allow `*.finance.yahoo.com` (data) in addition to the Robinhood MCP host.
-See https://code.claude.com/docs/en/claude-code-on-the-web for trigger/schedule setup.
+**Crontab line** — runs **3:30 PM ET, Mon–Fri** (the holiday list inside the script skips
+market holidays). `CRON_TZ` pins it to Eastern regardless of the machine's timezone:
+```cron
+CRON_TZ=America/New_York
+PATH=/usr/local/bin:/usr/bin:/bin:/home/<you>/.local/bin
+30 15 * * 1-5  /full/path/to/repo/robinhood_trader/run_daily.sh
+```
+(Replace `/full/path/to/repo` and the PATH so `claude`/`python3` resolve. Edit `crontab -e`.)
+
+3:30 PM ET is ~30 min before the close so the daily bar is near-final and dollar/fractional
+orders are accepted (they only execute in regular hours). Each run logs to
+`robinhood_trader/logs/run_<date>.log`. A non-zero exit or a `NEEDS_ATTENTION:` line means
+the run needs you (most often: re-auth the MCP). Uncomment the `mail` lines in the script
+to get emailed on failures.
+
+> **Re-auth note:** the MCP OAuth token can expire/revoke. If a run aborts with an auth
+> error, run `claude` + `/mcp` interactively on that machine to re-authenticate.
+
+### Alternative: Claude Code on the web
+Instead of local cron you can create a **scheduled trigger** at https://claude.com/code on
+this repo/branch with the same prompt `run_daily.sh` uses, set to trading days ~3:30 PM ET,
+and allow `*.finance.yahoo.com` in the environment's network policy. Managed infra runs it
+without a machine of yours staying on. See
+https://code.claude.com/docs/en/claude-code-on-the-web.
 
 > **Re-auth note:** the MCP OAuth token may expire between sessions. If a scheduled run
 > finds the Robinhood tools unauthenticated, it must call `authenticate` and surface the

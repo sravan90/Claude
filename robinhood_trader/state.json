@@ -1,0 +1,21 @@
+{
+  "account_number": "855664652",
+  "high_water_mark": 171.27,
+  "halted": false,
+  "last_target": "TQQQ",
+  "last_run": "2026-06-10",
+  "history": [
+    {
+      "date": "2026-06-10",
+      "equity": 171.27,
+      "regime": "BULL",
+      "target": "TQQQ",
+      "action": "BUY TQQQ $167.84 (queued, fills next open)",
+      "order_id": "6a28e574-c34a-40e9-9030-10331bd69be1",
+      "qqq_close": 716.07,
+      "sma50": 670.65,
+      "sma200": 622.57,
+      "rsi14": 53.6
+    }
+  ]
+}
